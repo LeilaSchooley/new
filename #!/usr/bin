@@ -1,0 +1,94 @@
+#!/usr/bin/python3
+import threading
+import time
+import itertools
+import PySimpleGUI as sg
+import asyncio
+import concurrent.futures
+import concurrent.futures
+from time import sleep
+from pyppeteer import launch
+from pyppeteer_stealth import stealth
+from twocaptcha import TwoCaptcha
+
+
+def run(proxy, thread, window):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    future = asyncio.ensure_future(main(proxy, thread, window))  # tasks to do
+    loop.run_until_complete(future)  # loop until done
+
+
+async def main(proxy, a):
+
+    while True:
+        print(f"Starting Thread {a}")
+        #browser = await launch({'args': [f'--proxy-server={proxy[0]}'} ,headless=True, handleSIGINT=False, handleSIGTERM=False, handleSIGHUP=False)
+        browser = await launch(
+
+            headless=True, handleSIGINT=False, handleSIGTERM=False, handleSIGHUP=False)
+
+        page = await browser.newPage()
+
+        await stealth(page)
+
+        print('>>Solving Captcha') # Need all print statements to show in GUI for each thread
+
+        print('>>Captcha solved')
+
+        print('>>Countdown over')
+        print('>>Looking for download button')
+
+
+def the_gui():
+    layout = [[sg.Text('Thread Number:'), sg.InputText(k='Threads')],
+              # [sg.Text('2Captcha Key:'), sg.InputText(k='2Captcha')],
+              # [sg.Text('Proxies:'), sg.FileBrowse(k='Proxies')],
+
+              # [sg.Text('Enter Download Path:'), sg.FolderBrowse(k='DownloadPath')],
+              # [sg.Text('Download Links:'), sg.FileBrowse(k='DownloadLinks')],
+              [sg.OK(), sg.Cancel()]]
+
+    window = sg.Window('Downlaod Bot', layout, finalize=True)
+
+    # -- Create a Queue to communicate with GUI --
+    # queue used to communicate between the gui and the threads
+    # -- Start worker threads, each taking a different amount of time
+
+    # -- Start the GUI passing in the Queue --
+
+    sg.cprint_set_output_destination(window, '-ML-')
+    colors = {'Thread 1': ('white', 'red'), 'Thread 2': ('white', 'purple'), 'Thread 3': ('white', 'blue')}
+
+    while True:
+        # wait for up to 100 ms for a GUI event
+        event, values = window.read()
+        if event in (sg.WIN_CLOSED, 'OK'):
+            thread_number = int(values['Threads'])
+
+            #captcha_key = values['2Captcha']
+            #solver = TwoCaptcha(captcha_key)
+
+            proxy_path = values['Proxies'] # For proxies
+
+            # download_dir = values['DownloadPath']
+            # download_links = values['DownloadLinks']
+
+            def threading_only(thread):
+                with concurrent.futures.ThreadPoolExecutor(max_workers=thread_number) as executor:
+                    proxys = [i.split('\n') for i in open(proxy_path)]
+
+                    executor.map(run, proxys, thread, window)
+
+            threading_only(range(thread_number))
+
+        if event in (sg.WIN_CLOSED, 'Exit'):
+            break
+        # --------------- Loop through all messages coming in from threads ---------------
+        sg.cprint(event, values[event], c=colors[event])
+    # if user exits the window, then close the window and exit the GUI func
+    window.close()
+
+
+if __name__ == '__main__':
+    the_gui()
